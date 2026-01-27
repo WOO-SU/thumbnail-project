@@ -33,7 +33,7 @@ services:
     build: ./backend
     container_name: thumbnail_be
     # Dev
-    command: python manage.py runserver 0.0.0.0:8000
+    command: python thumbnailcreator/manage.py runserver 0.0.0.0:8000
 
     # For Deployment
     # command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
@@ -63,7 +63,7 @@ services:
     build: 
       context: ./worker  # Pointing to the new worker folder
       dockerfile: Dockerfile
-    container_name: worker
+    container_name: thumbnail_worker
 
     command: watchmedo auto-restart --directory=./ --pattern=*.py --recursive -- python worker.py
 
@@ -80,19 +80,6 @@ services:
       # Same Connection String as Backend
       - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
   
-  frontend:
-    build: ./frontend
-    container_name: thumbnail_fe
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    ports:
-      - "3000:3000"
-    environment:
-      - WATCHPACK_POLLING=true 
-      - REACT_APP_API_URL=http://localhost:8000
-    stdin_open: true
-    tty: true
 
 
 volumes:
