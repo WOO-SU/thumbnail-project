@@ -79,6 +79,21 @@ services:
       - MYSQL_HOST=db
       # Same Connection String as Backend
       - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
+  
+  frontend:
+    build: ./frontend
+    container_name: thumbnail_fe
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - WATCHPACK_POLLING=true 
+      - REACT_APP_API_URL=http://localhost:8000
+    stdin_open: true
+    tty: true
+
 
 volumes:
   db_data:
