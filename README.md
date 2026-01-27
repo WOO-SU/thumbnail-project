@@ -1,9 +1,13 @@
 # Thumbnail-project
 
-지금은 아직 빌드 컨테이너 정의가 끝나지 않았기 때문에, docker compose up -d
-파이썬 (pip) 의 경우 requirements.txt,
 typescript (npm) 의 경우 package.json , package-lock.json 을 npm init으로 생성하면
 아마도 성공적으로 docker compose 가 가능해질 겁니다.
+
+
+frontend:
+```bash
+docker build -t frontend .
+```
 
 ```bash
 docker compose up -d
