@@ -36,12 +36,26 @@ services:
     volumes:
       - azurite_data:/data
 
+  azurite-init:
+    image: mcr.microsoft.com/azure-cli
+    container_name: thumbnail_azurite_init
+    depends_on:
+      - azurite
+    command: >
+      sh -c "
+      echo 'Waiting for Azurite to launch...' &&
+      sleep 5 &&
+      echo 'Setting CORS for Blob...' &&
+      az storage cors add --services b --origins '*' --methods GET POST PUT OPTIONS DELETE --allowed-headers '*' --exposed-headers '*' --max-age 3600 --connection-string 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;' &&
+      echo 'Setting CORS for Queue...' &&
+      az storage cors add --services q --origins '*' --methods GET POST PUT OPTIONS DELETE --allowed-headers '*' --exposed-headers '*' --max-age 3600 --connection-string 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;QueueEndpoint=http://azurite:10001/devstoreaccount1;' &&
+      echo 'Azurite configured successfully.'
+      "
+
   # 3. Backend (Django) - UPDATED
   backend:
     build: ./backend
     container_name: thumbnail_be
-    # Dev
-    command: python thumbnailcreator/manage.py runserver 0.0.0.0:8000
 
     # For Deployment
     # command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
@@ -65,15 +79,10 @@ services:
       - DJANGO_SECRET_KEY=${SECRET_KEY}
 
       - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
-    command: >
-      /bin/sh -c "
-      # Wait for Azurite to be ready
-      sleep 10s; 
-      # Set CORS rules for Blob service (adjust origins/methods as needed)
-      az storage blob service-properties update --account-name devstoreaccount1 --account-key Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6 --connection-string 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6;BlobEndpoint=http://azurite:10000;QueueEndpoint=http://azurite:10001;' --cors '[{\"allowed_origins\":\"*\",\"allowed_methods\":\"GET,POST,PUT,DELETE,OPTIONS\",\"max_age_in_seconds\":3600,\"allowed_headers\":\"*\",\"exposed_headers\":\"*\"}]';
-      # Set CORS rules for Queue service
-      az storage queue service-properties update --account-name devstoreaccount1 --account-key Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6 --connection-string 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6;BlobEndpoint=http://azurite:10000;QueueEndpoint=http://azurite:10001;' --cors '[{\"allowed_origins\":\"*\",\"allowed_methods\":\"GET,POST,PUT,DELETE,OPTIONS\",\"max_age_in_seconds\":3600,\"allowed_headers\":\"*\",\"exposed_headers\":\"*\"}]'
-      "
+        # Dev
+    command: python thumbnailcreator/manage.py runserver 0.0.0.0:8000
+
+
   # 4. Worker (Python + FFmpeg) - NEW
   worker:
     build: 
