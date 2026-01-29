@@ -24,7 +24,15 @@ services:
     ports:
       - "10000:10000" # Blob storage port
       - "10001:10001" # Queue storage port
-      - "10002:10002" # Table storage (optional)
+    command:
+      - azurite
+      - --blobHost
+      - 0.0.0.0
+      - --queueHost
+      - 0.0.0.0
+      - --location
+      - /data
+      - --loose
     volumes:
       - azurite_data:/data
 
@@ -57,7 +65,15 @@ services:
       - DJANGO_SECRET_KEY=${SECRET_KEY}
 
       - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
-
+    command: >
+      /bin/sh -c "
+      # Wait for Azurite to be ready
+      sleep 10s; 
+      # Set CORS rules for Blob service (adjust origins/methods as needed)
+      az storage blob service-properties update --account-name devstoreaccount1 --account-key Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6 --connection-string 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6;BlobEndpoint=http://azurite:10000;QueueEndpoint=http://azurite:10001;' --cors '[{\"allowed_origins\":\"*\",\"allowed_methods\":\"GET,POST,PUT,DELETE,OPTIONS\",\"max_age_in_seconds\":3600,\"allowed_headers\":\"*\",\"exposed_headers\":\"*\"}]';
+      # Set CORS rules for Queue service
+      az storage queue service-properties update --account-name devstoreaccount1 --account-key Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6 --connection-string 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6Eby8vdM02xNOcqFevkbPZRvz1FclJ7t3YvsZ6;BlobEndpoint=http://azurite:10000;QueueEndpoint=http://azurite:10001;' --cors '[{\"allowed_origins\":\"*\",\"allowed_methods\":\"GET,POST,PUT,DELETE,OPTIONS\",\"max_age_in_seconds\":3600,\"allowed_headers\":\"*\",\"exposed_headers\":\"*\"}]'
+      "
   # 4. Worker (Python + FFmpeg) - NEW
   worker:
     build: 
