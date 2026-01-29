@@ -15,28 +15,21 @@ CONNECTION_STR = (
     f"BlobEndpoint=http://{AZURITE_HOST}:10000/devstoreaccount1;"
     f"QueueEndpoint=http://{AZURITE_HOST}:10001/devstoreaccount1;"
 )
-
-def handle_upload(file_obj, filename):
-    # 1. Upload to Blob
-    blob_service = BlobServiceClient.from_connection_string(CONNECTION_STR)
-    container = blob_service.get_container_client("my-files")
-    
-    if not container.exists():
-        container.create_container()
-
-    blob_client = container.get_blob_client(blob=filename)
-    blob_client.upload_blob(file_obj, overwrite=True)
-    
-    # 2. Put message in Queue
-    queue_client = QueueClient.from_connection_string(CONNECTION_STR, "processing-queue")
+# blob - 나 연결 / 입력 받은 주소로 blob에 가서 가져오기 
+def handle_download(file_path):    
+    queue_client1 = QueueClient.from_connection_string(CONNECTION_STR, "processing-queue") # 연결 부분
     
     try:
-        queue_client.create_queue()
+        queue_client1.create_queue()
     except:
         pass # Queue already exists
 
     # We send a JSON string so the worker knows what file to look for
-    message = json.dumps({"file_name": filename, "task": "process_data"})
-    queue_client.send_message(message)
+    message = json.dumps({"file_path": file_path})
+    queue_client1.send_message(message)
     
-    print(f"Uploaded {filename} and queued job.")
+    print(f"Uploaded {file_path} and queued job.")
+
+# Thumbnail 저장한 경로 프론트에 보내주기 
+def send_path(file_path):
+    
