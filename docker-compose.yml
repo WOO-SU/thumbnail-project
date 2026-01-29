@@ -24,7 +24,15 @@ services:
     ports:
       - "10000:10000" # Blob storage port
       - "10001:10001" # Queue storage port
-      - "10002:10002" # Table storage (optional)
+    command:
+      - azurite
+      - --blobHost
+      - 0.0.0.0
+      - --queueHost
+      - 0.0.0.0
+      - --location
+      - /data
+      - --loose
     volumes:
       - azurite_data:/data
 
