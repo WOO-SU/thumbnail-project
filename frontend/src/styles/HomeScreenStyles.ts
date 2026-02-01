@@ -116,6 +116,21 @@ const styles = StyleSheet.create({
     marginTop: 20,
     width: '100%',
   },
+  statusText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+  },
+  loadingContainer: {
+    marginVertical: 20,
+    alignItems: 'center',
+  },
 });
 
 export default styles;
