@@ -18,12 +18,12 @@ services:
 
   # 2. Local Azure Storage (Azurite) - NEW
   azurite:
-    image: mcr.microsoft.com/azure-storage/azurite
+    image: mcr.microsoft.com/azure-storage/azurite:latest
     container_name: thumbnail_azurite
     restart: always
     ports:
-      - "10000:10000" # Blob storage port
-      - "10001:10001" # Queue storage port
+      - "10000:10000"
+      - "10001:10001"
     command:
       - azurite
       - --blobHost
@@ -33,9 +33,10 @@ services:
       - --location
       - /data
       - --loose
+      - --skipApiVersionCheck
     volumes:
       - azurite_data:/data
-
+ 
   azurite-init:
     image: mcr.microsoft.com/azure-cli
     container_name: thumbnail_azurite_init
@@ -105,8 +106,8 @@ services:
       redis:
         condition: service_started
 
-    command: celery -A config worker -l info
-
+    command: ["python", "-m", "celery", "-A", "config", "worker", "-l", "info"]
+    
     environment:
       - MYSQL_DATABASE=${DB_NAME}
       - MYSQL_USER=${DB_USER}

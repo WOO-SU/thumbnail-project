@@ -15,29 +15,24 @@ from azure.storage.blob import BlobServiceClient, ContentSettings
 
 print("✅ LOADED tasks.py from:", __file__)
 
-def _send_ws(reply_channel: str, payload: dict) -> None:
+# apps/creator/tasks.py
+
+def _send_ws(reply_channel: str | None, payload: dict) -> None:
+    # HTTP 트리거(=reply_channel 없음)인 경우: WS 전송 스킵
+    if not reply_channel:
+        print("no reply_channel, skip ws:", payload)
+        return
+
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.send)(reply_channel, payload)
 
-
 def _split_container_and_blob(path: str, default_container: str) -> tuple[str, str]:
-    """
-    입력 path가
-      - "videos/raw/a.mp4" (컨테이너 포함) 이거나
-      - "raw/a.mp4" (컨테이너 미포함) 일 수 있어서 둘 다 처리
-    """
     p = (path or "").lstrip("/")
-
-    # "container/blob..." 형태면 컨테이너로 해석
     if "/" in p:
         first, rest = p.split("/", 1)
-        # first가 실제 컨테이너인지 확신은 없지만, default_container가 따로 있고
-        # path에 컨테이너까지 붙여서 보내는 경우를 지원하기 위해 이렇게 처리
-        if first and rest and first != default_container:
-            # 컨테이너를 명시했다고 가정
+        # first가 컨테이너명일 가능성이 높으니, 그냥 컨테이너로 처리
+        if first and rest:
             return first, rest
-
-    # 컨테이너 미포함이면 default 사용
     return default_container, p
 
 @shared_task
@@ -52,15 +47,21 @@ def make_thumbnail_task(path: str, reply_channel: str):
     thumb_tmp_path = None
 
     try:
-        conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        # 변경 (Azurite용으로 지금 compose랑 일치)
+        conn_str = os.getenv("AZURE_CONNECTION_STRING")
         if not conn_str:
-            raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING is not set")
-
+            raise RuntimeError("AZURE_CONNECTION_STRING is not set")
         video_container_default = os.getenv("AZURE_VIDEO_CONTAINER", "videos")
         thumb_container = os.getenv("AZURE_THUMB_CONTAINER", "thumbnails")
         thumb_prefix = os.getenv("AZURE_THUMB_PREFIX", "thumbs")
 
         bsc = BlobServiceClient.from_connection_string(conn_str)
+        for name in [video_container_default, thumb_container]:
+            cc = bsc.get_container_client(name)
+            try:
+                cc.create_container()
+            except Exception:
+                pass
 
         # 1) 입력 path -> (video_container, video_blob_name)
         video_container, video_blob_name = _split_container_and_blob(path, video_container_default)
