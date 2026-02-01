@@ -14,7 +14,7 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 
 from creator.routing import websocket_urlpatterns
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'thumbnailcreator.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),

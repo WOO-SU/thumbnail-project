@@ -52,6 +52,12 @@ services:
       echo 'Azurite configured successfully.'
       "
 
+  redis:
+    image: redis:6
+    container_name: thumbnail_redis
+    ports:
+      - "6379:6379"
+
   # 3. Backend (Django) - UPDATED
   backend:
     build: ./backend
@@ -78,32 +84,41 @@ services:
       - DEBUG=${DEBUG}
       - DJANGO_SECRET_KEY=${SECRET_KEY}
 
-      - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
+      - AZURE_CONNECTION_STRING=${AZURITE_CONNECTION_STRING}
         # Dev
-    command: python thumbnailcreator/manage.py runserver 0.0.0.0:8000
+    command: python manage.py runserver 0.0.0.0:8000
 
 
   # 4. Worker (Python + FFmpeg) - NEW
   worker:
-    build: 
-      context: ./worker  # Pointing to the new worker folder
-      dockerfile: Dockerfile
+    build: ./backend
     container_name: thumbnail_worker
 
-    command: watchmedo auto-restart --directory=./ --pattern=*.py --recursive -- python worker.py
-
     volumes:
-      - ./worker:/app
+      - ./backend:/app
       # If the worker needs to write to DB, share DB logic or use API
     depends_on:
       azurite:
         condition: service_started
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
+
+    command: celery -A config worker -l info
+
     environment:
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
       - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - DJANGO_SECRET_KEY=${SECRET_KEY}
       # Same Connection String as Backend
-      - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
+      - AZURE_HOST=${AZURITE_HOST}
+      - AZURE_CONNECTION_STRING=${AZURITE_CONNECTION_STRING}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
   
 
 
