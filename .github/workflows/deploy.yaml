@@ -1,0 +1,52 @@
+name: Build and Deploy to Azure
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  ACR_NAME: "your_registry_name" # e.g. myacr.azurecr.io
+  RG_NAME: "your_resource_group"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      # --- Build & Push Backend ---
+      - name: Build and push Backend
+        run: |
+          docker build ./backend -t ${{ env.ACR_NAME }}/thumbnail-backend:${{ github.sha }}
+          docker push ${{ env.ACR_NAME }}/thumbnail-backend:${{ github.sha }}
+
+      # --- Build & Push Worker ---
+      - name: Build and push Worker
+        run: |
+          docker build ./worker -t ${{ env.ACR_NAME }}/thumbnail-worker:${{ github.sha }}
+          docker push ${{ env.ACR_NAME }}/thumbnail-worker:${{ github.sha }}
+
+      # --- Deploy to Azure Container Apps ---
+      - name: Deploy Backend App
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          imageToDeploy: ${{ env.ACR_NAME }}/thumbnail-backend:${{ github.sha }}
+          targetPort: 8000
+          containerAppName: thumbnail-backend-app
+          resourceGroup: ${{ env.RG_NAME }}
+          
+      - name: Deploy Worker App
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          imageToDeploy: ${{ env.ACR_NAME }}/thumbnail-worker:${{ github.sha }}
+          containerAppName: thumbnail-worker-app
+          resourceGroup: ${{ env.RG_NAME }}
