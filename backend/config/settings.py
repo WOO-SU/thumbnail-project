@@ -58,7 +58,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'channels',
-    'creator'
+    'apps.creator'
 ]
 
 ASGI_APPLICATION = "config.asgi.application"
