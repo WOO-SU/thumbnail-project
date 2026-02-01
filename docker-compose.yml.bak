@@ -1,0 +1,100 @@
+services:
+  # 1. Database (Existing)
+  db:
+    image: mysql:8.0
+    container_name: thumbnail_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # 2. Local Azure Storage (Azurite) - NEW
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: thumbnail_azurite
+    restart: always
+    ports:
+      - "10000:10000" # Blob storage port
+      - "10001:10001" # Queue storage port
+      - "10002:10002" # Table storage (optional)
+    volumes:
+      - azurite_data:/data
+
+  # 3. Backend (Django) - UPDATED
+  backend:
+    build: ./backend
+    container_name: thumbnail_be
+    # Dev
+    command: python manage.py runserver 0.0.0.0:8000
+
+    # For Deployment
+    # command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      azurite:
+        condition: service_started
+    environment:
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+
+      - DEBUG=${DEBUG}
+      - DJANGO_SECRET_KEY=${SECRET_KEY}
+
+      - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
+
+  # 4. Worker (Python + FFmpeg) - NEW
+  worker:
+    build: 
+      context: ./worker  # Pointing to the new worker folder
+      dockerfile: Dockerfile
+    container_name: worker
+
+    command: watchmedo auto-restart --directory=./ --pattern=*.py --recursive -- python worker.py
+
+    volumes:
+      - ./worker:/app
+      # If the worker needs to write to DB, share DB logic or use API
+    depends_on:
+      azurite:
+        condition: service_started
+      db:
+        condition: service_healthy
+    environment:
+      - MYSQL_HOST=db
+      # Same Connection String as Backend
+      - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
+  
+  frontend:
+    build: ./frontend
+    container_name: thumbnail_fe
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - WATCHPACK_POLLING=true 
+      - REACT_APP_API_URL=http://localhost:8000
+    stdin_open: true
+    tty: true
+
+
+volumes:
+  db_data:
+  azurite_data: # Persist simulated Azure data
