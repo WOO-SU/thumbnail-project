@@ -5,3 +5,5 @@ const ACCOUNT = 'devstoreaccount1';
 export const BLOB_BASE_URL = `${AZURITE_HOST}/${ACCOUNT}`;
 export const VIDEOS_CONTAINER = 'videos';
 export const THUMBNAILS_CONTAINER = 'thumbnails';
+
+export const WS_URL = 'ws://10.0.2.2:8000/ws/thumbnail/';

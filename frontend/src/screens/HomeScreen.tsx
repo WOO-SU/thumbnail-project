@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   Text,
   View,
@@ -13,6 +13,8 @@ import {
   getThumbnailUrl,
   saveThumbnailToGallery,
 } from '../services/blobService';
+import WebSocketService from '../services/websocket';
+import {WS_URL} from '../services/config';
 import styles from '../styles/HomeScreenStyles';
 
 const HomeScreen: React.FC = () => {
@@ -21,6 +23,30 @@ const HomeScreen: React.FC = () => {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [status, setStatus] = useState<string>('');
+
+  useEffect(() => {
+    WebSocketService.connect(WS_URL);
+
+    const onMessage = (data: any) => {
+      if (data.type === 'thumbnail_done') {
+        const url = getThumbnailUrl(data.thumb_path);
+        setThumbnailUrl(url);
+        setLoading(false);
+        setStatus('썸네일 생성 완료');
+      } else if (data.type === 'thumbnail_error') {
+        setLoading(false);
+        setStatus('썸네일 생성 실패');
+        Alert.alert('오류', data.error || '썸네일 생성에 실패했습니다.');
+      }
+    };
+
+    WebSocketService.addListener(onMessage);
+
+    return () => {
+      WebSocketService.removeListener(onMessage);
+      WebSocketService.disconnect();
+    };
+  }, []);
 
   const handleUpload = async (): Promise<void> => {
     const result = await launchImageLibrary({
@@ -55,17 +81,13 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleGenerate = (): void => {
-    // TODO: 
-    // sendEnqueue(blobPath) 호출 후 thumbnail_done 응답 수신 시:
-    // const url = getThumbnailUrl(thumbPath);
-    // setThumbnailUrl(url);
+    if (!blobPath) {
+      return;
+    }
+    setLoading(true);
+    setStatus('썸네일 생성 중...');
+    WebSocketService.sendMessage('enqueue', {path: blobPath});
   };
-
-  // TODO: 
-  // const url = getThumbnailUrl(thumbPath);
-  // setThumbnailUrl(url);
-  // setLoading(false);
-  // setStatus('썸네일 생성 완료');
 
   const handleSave = async (): Promise<void> => {
     if (!thumbnailUrl) {
