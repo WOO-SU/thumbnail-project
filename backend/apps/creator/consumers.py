@@ -1,13 +1,32 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-from ....worker.tasks import make_thumbnail_task
+from .tasks import make_thumbnail_task
 
 
 class ThumbnailConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
-        await self.send(text_data=json.dumps({"type": "connected"}))
-    
+        await self.channel_layer.group_add("job_updates", self.channel_name)
+
+    def disconnect(self, close_code):
+        """
+        Cleanup when connection closes.
+        """
+        self.channel_layer.group_discard("job_updates", self.channel_name)
+
+    def job_message(self, event):
+        """
+        3. Custom function to handle messages sent from the WORKER.
+        The worker sends data to the group, and this function forwards it to the frontend.
+        """
+        message = event['message']
+        
+        # Send actual data to WebSocket
+        self.send(text_data=json.dumps({
+            'status': 'update',
+            'content': message
+        }))
+
     async def receive(self, text_data=None, bytes_data=None):
         msg = json.loads(text_data or "{}")
         if msg.get("type") != "enqueue":

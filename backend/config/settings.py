@@ -11,9 +11,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os, sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+sys.path.insert(0, str(BASE_DIR / "apps"))
 
 
 # Quick-start development settings - unsuitable for production
@@ -24,6 +27,23 @@ SECRET_KEY = 'django-insecure-!4a3#a3(@k^6m882v#d3+i-v*x#6q99%yg7a8fwp(1m@45h+-0
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+REDIS_PORT = os.getenv('REDIS_PORT', '6379')
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '')
+if REDIS_PASSWORD:
+    # Azure (Production) usually requires SSL (rediss://) and a password
+    REDIS_BASE_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
+else:
+    # Local Docker (Development) usually has no password
+    REDIS_BASE_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+
+CELERY_BROKER_URL = f"{REDIS_BASE_URL}/0"
+
+# DB 1: The Results - Where return values are stored
+CELERY_RESULT_BACKEND = f"{REDIS_BASE_URL}/1"
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
 
 ALLOWED_HOSTS = []
 
@@ -41,13 +61,13 @@ INSTALLED_APPS = [
     'creator'
 ]
 
-ASGI_APPLICATION = "thumbnailcreator.asgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 # Redis를 channel layer로 사용
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [("127.0.0.1", 6379)]},
+        "CONFIG": {"hosts": [f"{REDIS_BASE_URL}/0"]},
     }
 }
 
@@ -61,7 +81,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'thumbnailcreator.urls'
+ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
     {
@@ -78,7 +98,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'thumbnailcreator.wsgi.application'
+WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # Database
@@ -132,6 +152,3 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
-CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/1"
