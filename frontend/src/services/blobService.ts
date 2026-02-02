@@ -2,12 +2,12 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 import {Platform, PermissionsAndroid} from 'react-native';
 import {CameraRoll} from '@react-native-camera-roll/camera-roll';
 import {BLOB_BASE_URL, VIDEOS_CONTAINER} from './config';
-import { BlobServiceClient, StorageSharedKeyCredential } from '@azure/storage-blob';
+import { BlobServiceClient} from '@azure/storage-blob';
 import { Buffer } from 'buffer';
 
 global.Buffer = Buffer; // Required for mobile
-const ACCOUNT = 'devstoreaccount1';
-const ACCOUNT_KEY = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==';
+
+const AZURITE_CONN_STRING = "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://10.0.2.2:10000/devstoreaccount1;";
 
 /**
  * 영상 파일을 Azurite Blob Storage에 업로드
@@ -17,18 +17,17 @@ export async function uploadVideoToBlob(
   fileUri: string,
   fileName: string,
 ): Promise<string> {
-
-  const sharedKeyCredential = new StorageSharedKeyCredential(ACCOUNT, ACCOUNT_KEY);
-  const blobServiceClient = new BlobServiceClient(
-    BLOB_BASE_URL,
-    sharedKeyCredential
-  );
+  // Fix: Initialize using Connection String which handles the local pathing better for the SDK
+  const blobServiceClient = BlobServiceClient.fromConnectionString(AZURITE_CONN_STRING);
 
   const containerClient = blobServiceClient.getContainerClient(VIDEOS_CONTAINER);
+  
+  // Create container if it doesn't exist (common issue in fresh Azurite instances)
+  await containerClient.createIfNotExists();
+
   const blockBlobClient = containerClient.getBlockBlobClient(fileName);
 
   const filePath = fileUri.replace('file://', '');
-
   const base64Data = await ReactNativeBlobUtil.fs.readFile(filePath, 'base64');
   const buffer = Buffer.from(base64Data, 'base64');
 
