@@ -2,6 +2,12 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 import {Platform, PermissionsAndroid} from 'react-native';
 import {CameraRoll} from '@react-native-camera-roll/camera-roll';
 import {BLOB_BASE_URL, VIDEOS_CONTAINER} from './config';
+import { BlobServiceClient, StorageSharedKeyCredential } from '@azure/storage-blob';
+import { Buffer } from 'buffer';
+
+global.Buffer = Buffer; // Required for mobile
+const ACCOUNT = 'devstoreaccount1';
+const ACCOUNT_KEY = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==';
 
 /**
  * 영상 파일을 Azurite Blob Storage에 업로드
@@ -11,26 +17,26 @@ export async function uploadVideoToBlob(
   fileUri: string,
   fileName: string,
 ): Promise<string> {
-  const blobPath = `${VIDEOS_CONTAINER}/${fileName}`;
-  const putUrl = `${BLOB_BASE_URL}/${blobPath}`;
 
-  // content:// URI를 실제 파일 경로로 변환
-  const filePath = fileUri.startsWith('content://')
-    ? (await ReactNativeBlobUtil.fs.stat(fileUri)).path
-    : fileUri.replace('file://', '');
-
-  await ReactNativeBlobUtil.fetch(
-    'PUT',
-    putUrl,
-    {
-      'x-ms-blob-type': 'BlockBlob',
-      'Content-Type': 'video/mp4',
-      'x-ms-version': '2020-10-02',
-    },
-    ReactNativeBlobUtil.wrap(filePath),
+  const sharedKeyCredential = new StorageSharedKeyCredential(ACCOUNT, ACCOUNT_KEY);
+  const blobServiceClient = new BlobServiceClient(
+    BLOB_BASE_URL,
+    sharedKeyCredential
   );
 
-  return blobPath;
+  const containerClient = blobServiceClient.getContainerClient(VIDEOS_CONTAINER);
+  const blockBlobClient = containerClient.getBlockBlobClient(fileName);
+
+  const filePath = fileUri.replace('file://', '');
+
+  const base64Data = await ReactNativeBlobUtil.fs.readFile(filePath, 'base64');
+  const buffer = Buffer.from(base64Data, 'base64');
+
+  await blockBlobClient.uploadData(buffer, {
+    blobHTTPHeaders: { blobContentType: 'video/mp4' },
+  });
+
+  return `${VIDEOS_CONTAINER}/${fileName}`;
 }
 
 /**
